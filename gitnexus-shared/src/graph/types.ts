@@ -44,7 +44,12 @@ export type NodeLabel =
   | 'Template'
   | 'Section'
   | 'Route'
-  | 'Tool';
+  | 'Tool'
+  // Vault mode
+  | 'Note'
+  | 'Person'
+  | 'Topic'
+  | 'Tag';
 
 export type NodeProperties = {
   name: string;
@@ -115,7 +120,12 @@ export type RelationshipType =
   | 'HANDLES_TOOL'
   | 'ENTRY_POINT_OF'
   | 'WRAPS'
-  | 'QUERIES';
+  | 'QUERIES'
+  // Vault mode
+  | 'PARTICIPATES_IN'
+  | 'TAGGED'
+  | 'LABELED'
+  | 'LINKS_TO';
 
 export interface GraphNode {
   id: string;
