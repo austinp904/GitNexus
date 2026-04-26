@@ -30,3 +30,31 @@ export function parseFrontmatter(text: string): ParsedFrontmatter {
     };
   }
 }
+
+export interface WikiLinkRef {
+  target: string;
+  alias: string | undefined;
+  anchor: string | undefined;
+}
+
+const WIKILINK_RE = /(!?)\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]/g;
+
+/**
+ * Extract every [[Note]], [[Note|alias]], [[Note#heading]], and ![[Note]]
+ * from a markdown body. Returns refs in document order. Embeds (![[]]) are
+ * treated identically to wikilinks for graph purposes.
+ */
+export function extractWikilinks(body: string): WikiLinkRef[] {
+  const out: WikiLinkRef[] = [];
+  let m: RegExpExecArray | null;
+  WIKILINK_RE.lastIndex = 0;
+  while ((m = WIKILINK_RE.exec(body)) !== null) {
+    const [, , target, anchor, alias] = m;
+    out.push({
+      target: target.trim(),
+      alias: alias?.trim(),
+      anchor: anchor?.trim(),
+    });
+  }
+  return out;
+}
