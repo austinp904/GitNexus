@@ -182,6 +182,12 @@ const LABEL_BEHAVIOR = {
   Section: 'inert',
   Route: 'inert',
   Tool: 'inert',
+
+  // Vault mode — file index only, no owner-scoped or callable lookup
+  Note: 'inert',
+  Person: 'inert',
+  Topic: 'inert',
+  Tag: 'inert',
 } as const satisfies Record<NodeLabel, LabelBehavior> &
   // Cross-invariant 1 — every class-like label (participates in
   // qualifiedName fallback in `SymbolTable.add()`) MUST be classified as

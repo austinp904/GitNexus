@@ -3,7 +3,10 @@ import {
   parseFrontmatter,
   extractWikilinks,
   resolveWikilink,
+  processVaultFile,
+  type VaultProcessStats,
 } from '../../src/core/ingestion/vault-processor.js';
+import { createKnowledgeGraph } from '../../src/core/graph/graph.js';
 
 describe('parseFrontmatter', () => {
   it('parses a well-formed YAML block', () => {
@@ -119,5 +122,74 @@ describe('resolveWikilink', () => {
       nameIndex,
     );
     expect(id).toBe('Project:alpha');
+  });
+});
+
+function emptyStats(): VaultProcessStats {
+  return {
+    processed: 0,
+    notes: 0,
+    people: 0,
+    projects: 0,
+    topics: 0,
+    tags: 0,
+    links: 0,
+    unresolved: 0,
+  };
+}
+
+describe('processVaultFile', () => {
+  it('emits Note + Person + Project + Topic + Tag nodes from frontmatter', () => {
+    const graph = createKnowledgeGraph();
+    const text = `---
+participants: [Alice Smith, Bob Jones]
+projects: [Alpha]
+topics: [Pricing]
+tags: [urgent, project/alpha, topic/pricing]
+started: 2026-01-15
+message_count: 3
+---
+# A thread`;
+
+    const stats = emptyStats();
+    processVaultFile(graph, '/repo', '01-Threads/test.md', text, stats);
+
+    expect(stats.notes).toBe(1);
+    expect(stats.people).toBe(2);
+    expect(stats.projects).toBe(1);
+    expect(stats.topics).toBe(1);
+    expect(stats.tags).toBe(1); // 'urgent' only; project/* and topic/* stripped
+    // 1 Note, 2 Persons, 1 Project (Alpha), 1 Topic (Pricing), 1 Tag (urgent)
+    expect(graph.nodeCount).toBeGreaterThanOrEqual(6);
+  });
+
+  it('strips auto-generated project/* and topic/* tags', () => {
+    const graph = createKnowledgeGraph();
+    const text = `---
+tags: [thread, project/alpha, topic/pricing, urgent]
+---
+# Thread`;
+    const stats = emptyStats();
+    processVaultFile(graph, '/repo', '01-Threads/x.md', text, stats);
+
+    const tagNodes = graph.nodes.filter((n) => n.label === 'Tag');
+    const tagNames = tagNodes.map((n) => n.properties.name).sort();
+    expect(tagNames).toEqual(['thread', 'urgent']);
+  });
+
+  it('does not crash on malformed YAML; still creates Note', () => {
+    const graph = createKnowledgeGraph();
+    const text = `---
+projects: [Alpha
+broken
+---
+# Body`;
+    const stats = emptyStats();
+    processVaultFile(graph, '/repo', '01-Threads/bad.md', text, stats);
+
+    expect(stats.notes).toBe(1);
+    const noteNode = graph.nodes.find((n) => n.label === 'Note');
+    expect(noteNode?.properties.frontmatterRaw).toContain('broken');
+    expect(noteNode?.properties.frontmatterJson).toBeUndefined();
   });
 });
