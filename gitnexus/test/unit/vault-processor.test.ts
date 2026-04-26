@@ -4,6 +4,7 @@ import {
   extractWikilinks,
   resolveWikilink,
   processVaultFile,
+  resolveAllWikilinks,
   type VaultProcessStats,
 } from '../../src/core/ingestion/vault-processor.js';
 import { createKnowledgeGraph } from '../../src/core/graph/graph.js';
@@ -191,5 +192,51 @@ broken
     const noteNode = graph.nodes.find((n) => n.label === 'Note');
     expect(noteNode?.properties.frontmatterRaw).toContain('broken');
     expect(noteNode?.properties.frontmatterJson).toBeUndefined();
+  });
+});
+
+describe('resolveAllWikilinks', () => {
+  it('emits LINKS_TO edges for resolved wikilinks and counts unresolved', () => {
+    const graph = createKnowledgeGraph();
+    const stats: VaultProcessStats = emptyStats();
+
+    // Pass 1: build the index
+    const note1 = processVaultFile(
+      graph,
+      '/repo',
+      '01-Threads/a.md',
+      `---\nparticipants: [Alice]\n---\n# A`,
+      stats,
+    );
+    const note2 = processVaultFile(
+      graph,
+      '/repo',
+      '01-Threads/b.md',
+      `---\nparticipants: [Alice]\n---\n# B\nSee [[01-Threads/a]] and [[Nonexistent]].`,
+      stats,
+    );
+
+    const nameIndex = new Map<string, string>();
+    for (const n of graph.nodes) {
+      nameIndex.set(String(n.properties.name), n.id);
+      const filePath = n.properties.filePath;
+      if (typeof filePath === 'string' && filePath !== '') {
+        nameIndex.set(filePath.replace(/\.md$/, ''), n.id);
+      }
+    }
+
+    // Pass 2: resolve wikilinks for each file
+    const fileBodies = new Map([
+      ['01-Threads/a.md', '# A'],
+      ['01-Threads/b.md', '# B\nSee [[01-Threads/a]] and [[Nonexistent]].'],
+    ]);
+    const fileNotes = new Map<string, string>();
+    if (note1) fileNotes.set('01-Threads/a.md', note1);
+    if (note2) fileNotes.set('01-Threads/b.md', note2);
+
+    resolveAllWikilinks(graph, fileBodies, fileNotes, nameIndex, stats);
+
+    expect(stats.links).toBe(1); // [[01-Threads/a]] resolved
+    expect(stats.unresolved).toBe(1); // [[Nonexistent]]
   });
 });

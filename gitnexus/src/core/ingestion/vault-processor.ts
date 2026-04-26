@@ -193,3 +193,38 @@ export function processVaultFile(
   stats.processed++;
   return noteId;
 }
+
+/**
+ * Second pass: walk every file body, extract wikilinks, resolve them against
+ * the populated nameIndex, emit LINKS_TO edges. Updates stats.links and stats.unresolved.
+ */
+export function resolveAllWikilinks(
+  graph: KnowledgeGraph,
+  fileBodies: Map<string, string>,
+  fileNoteIds: Map<string, string>,
+  nameIndex: Map<string, string>,
+  stats: VaultProcessStats,
+): void {
+  for (const [path, body] of fileBodies) {
+    const fromId = fileNoteIds.get(path);
+    if (!fromId) continue;
+    const refs = extractWikilinks(body);
+    for (const ref of refs) {
+      const toId = resolveWikilink(ref, nameIndex);
+      if (!toId) {
+        stats.unresolved++;
+        continue;
+      }
+      if (toId === fromId) continue; // skip self-links
+      graph.addRelationship({
+        id: generateId('LINKS_TO', `${fromId}->${toId}`),
+        type: 'LINKS_TO',
+        sourceId: fromId,
+        targetId: toId,
+        confidence: 0.9,
+        reason: 'wikilink-inline',
+      });
+      stats.links++;
+    }
+  }
+}
