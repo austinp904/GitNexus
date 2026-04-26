@@ -211,6 +211,59 @@ CREATE NODE TABLE Section (
 )`;
 
 // ============================================================================
+// VAULT MODE NODE TABLE SCHEMAS
+// ============================================================================
+
+// Email thread note
+export const NOTE_SCHEMA = `
+CREATE NODE TABLE Note (
+  id STRING,
+  name STRING,
+  filePath STRING,
+  title STRING,
+  started STRING,
+  ended STRING,
+  durationDays INT32,
+  messageCount INT32,
+  outcome STRING,
+  hasAttachments BOOLEAN,
+  frontmatterJson STRING,
+  frontmatterRaw STRING,
+  description STRING,
+  PRIMARY KEY (id)
+)`;
+
+// Person entity (email contact)
+export const PERSON_SCHEMA = `
+CREATE NODE TABLE Person (
+  id STRING,
+  name STRING,
+  email STRING,
+  filePath STRING,
+  description STRING,
+  PRIMARY KEY (id)
+)`;
+
+// Topic/theme entity
+export const TOPIC_SCHEMA = `
+CREATE NODE TABLE Topic (
+  id STRING,
+  name STRING,
+  filePath STRING,
+  description STRING,
+  PRIMARY KEY (id)
+)`;
+
+// Tag entity
+export const TAG_SCHEMA = `
+CREATE NODE TABLE Tag (
+  id STRING,
+  name STRING,
+  description STRING,
+  PRIMARY KEY (id)
+)`;
+
+// ============================================================================
 // RELATION TABLE SCHEMA
 // Single table with 'type' property - connects all node tables
 // ============================================================================
@@ -510,6 +563,11 @@ export const NODE_SCHEMA_QUERIES = [
   ROUTE_SCHEMA,
   // MCP tools
   TOOL_SCHEMA,
+  // Vault mode
+  NOTE_SCHEMA,
+  PERSON_SCHEMA,
+  TOPIC_SCHEMA,
+  TAG_SCHEMA,
 ];
 
 export const REL_SCHEMA_QUERIES = [RELATION_SCHEMA];
