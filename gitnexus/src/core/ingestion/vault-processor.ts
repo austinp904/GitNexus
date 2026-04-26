@@ -58,3 +58,17 @@ export function extractWikilinks(body: string): WikiLinkRef[] {
   }
   return out;
 }
+
+/**
+ * Resolve a wikilink target to a node ID by looking it up in the name index.
+ * First tries the full target as a key; falls back to the basename (last path segment).
+ * Returns null if no match — caller decides whether to log/skip/error.
+ *
+ * Anchors are ignored at this layer — heading-level resolution is out of scope for MVP.
+ */
+export function resolveWikilink(ref: WikiLinkRef, nameIndex: Map<string, string>): string | null {
+  const direct = nameIndex.get(ref.target);
+  if (direct) return direct;
+  const basename = ref.target.split('/').pop() ?? ref.target;
+  return nameIndex.get(basename) ?? null;
+}
