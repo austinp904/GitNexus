@@ -48,6 +48,12 @@ program
     '--max-file-size <kb>',
     'Skip files larger than this (KB). Default: 512. Hard cap: 32768 (tree-sitter limit).',
   )
+  .option(
+    '--mode <mode>',
+    'Ingestion mode: auto (detect Obsidian vault), vault (force vault phase), ' +
+      'code (code-only, skip vault), hybrid (both code and vault phases).',
+    'auto',
+  )
   .addHelpText(
     'after',
     '\nEnvironment variables:\n' +

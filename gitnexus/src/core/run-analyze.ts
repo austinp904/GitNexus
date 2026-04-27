@@ -11,6 +11,7 @@
 
 import path from 'path';
 import fs from 'fs/promises';
+import fsSync from 'node:fs';
 import { runPipelineFromRepo } from './ingestion/pipeline.js';
 import {
   initLbug,
@@ -82,6 +83,15 @@ export interface AnalyzeOptions {
    * of a pipeline re-index.
    */
   allowDuplicateName?: boolean;
+  /**
+   * Ingestion mode selector (vault-mode fork). Forwarded to
+   * `runPipelineFromRepo` along with auto-detection result.
+   * - `auto` (default): detect Obsidian vault and include vault phase if so.
+   * - `vault`: include vault phase regardless of detection.
+   * - `code`: skip vault phase even if the repo looks like a vault.
+   * - `hybrid`: include both code phases and the vault phase.
+   */
+  mode?: 'auto' | 'vault' | 'code' | 'hybrid';
 }
 
 export interface AnalyzeResult {
@@ -247,11 +257,23 @@ export async function runFullAnalysis(
   }
 
   // ── Phase 1: Full Pipeline (0–60%) ────────────────────────────────
-  const pipelineResult = await runPipelineFromRepo(repoPath, (p) => {
-    const phaseLabel = PHASE_LABELS[p.phase] || p.phase;
-    const scaled = Math.round(p.percent * 0.6);
-    progress(p.phase, scaled, phaseLabel);
-  });
+  // Vault-mode wiring: resolve the user's mode flag and run auto-detection
+  // when --mode=auto (the default). Auto-detection only flips the result
+  // to vault-on; explicit --mode=vault / --mode=hybrid always include the
+  // vault phase, --mode=code always skips it.
+  const mode = options.mode ?? 'auto';
+  const detectedVault =
+    mode === 'auto' ? detectVaultMode(repoPath) : mode === 'vault' || mode === 'hybrid';
+
+  const pipelineResult = await runPipelineFromRepo(
+    repoPath,
+    (p) => {
+      const phaseLabel = PHASE_LABELS[p.phase] || p.phase;
+      const scaled = Math.round(p.percent * 0.6);
+      progress(p.phase, scaled, phaseLabel);
+    },
+    { mode, detectedVault },
+  );
 
   // ── Phase 2: LadybugDB (60–85%) ──────────────────────────────────
   progress('lbug', 60, 'Loading into LadybugDB...');
@@ -471,4 +493,76 @@ export async function runFullAnalysis(
     }
     throw err;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Vault auto-detection (used when --mode=auto)
+// ---------------------------------------------------------------------------
+
+/**
+ * Heuristic check: does this repo look like an Obsidian / Markdown vault?
+ *
+ * Two signals:
+ *  - Strong: presence of an `.obsidian/` directory at the repo root.
+ *  - Fallback: ≥30% of (shallow-walked) files are `.md`/`.mdx` AND ≥10% of a
+ *    sample of those markdown files contain `[[wikilink]]` patterns.
+ *
+ * Synchronous + bounded (max 5000 files) so the cost is negligible compared
+ * to the rest of `analyze`. Skips heavy directories that would skew ratios.
+ */
+export function detectVaultMode(repoPath: string): boolean {
+  // Strong signal: .obsidian/ directory at repo root
+  try {
+    if (fsSync.existsSync(path.join(repoPath, '.obsidian'))) {
+      return true;
+    }
+  } catch {
+    /* ignore */
+  }
+
+  // Fallback signal: enough markdown, enough wikilinks
+  const all = collectFilesShallow(repoPath, 5000);
+  const total = all.length;
+  if (total < 10) return false;
+
+  const md = all.filter((p) => /\.mdx?$/i.test(p));
+  if (md.length / total < 0.3) return false;
+
+  let wikilinkFiles = 0;
+  const sample = md.slice(0, Math.min(100, md.length));
+  for (const p of sample) {
+    try {
+      const text = fsSync.readFileSync(p, 'utf8');
+      if (/\[\[[^\]]+\]\]/.test(text)) wikilinkFiles++;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return wikilinkFiles / sample.length >= 0.1;
+}
+
+function collectFilesShallow(root: string, max: number): string[] {
+  const out: string[] = [];
+  const stack: string[] = [root];
+  while (stack.length && out.length < max) {
+    const dir = stack.pop()!;
+    let entries: fsSync.Dirent[];
+    try {
+      entries = fsSync.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (/^(node_modules|\.git|dist|build|\.gitnexus)$/.test(entry.name)) continue;
+        stack.push(full);
+      } else if (entry.isFile()) {
+        out.push(full);
+        if (out.length >= max) break;
+      }
+    }
+  }
+  return out;
 }

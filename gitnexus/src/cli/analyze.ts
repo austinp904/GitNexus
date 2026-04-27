@@ -91,6 +91,14 @@ export interface AnalyzeOptions {
    * `GITNEXUS_MAX_FILE_SIZE` for the rest of the pipeline.
    */
   maxFileSize?: string;
+  /**
+   * Ingestion mode selector (vault-mode fork).
+   * - `auto` (default): code-only unless the repo auto-detects as an Obsidian vault.
+   * - `vault`: include the vault phase regardless of detection.
+   * - `code`: code-only, skip vault phase even if the repo looks like a vault.
+   * - `hybrid`: include both code and vault phases.
+   */
+  mode?: 'auto' | 'vault' | 'code' | 'hybrid';
 }
 
 export const analyzeCommand = async (inputPath?: string, options?: AnalyzeOptions) => {
@@ -242,6 +250,7 @@ export const analyzeCommand = async (inputPath?: string, options?: AnalyzeOption
         // be able to accept the duplicate name without also paying the
         // cost of a full pipeline re-index. See #829 review round 2.
         allowDuplicateName: options?.allowDuplicateName,
+        mode: options?.mode,
       },
       {
         onProgress: (_phase, percent, message) => {
