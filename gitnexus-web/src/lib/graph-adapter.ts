@@ -47,12 +47,14 @@ const getScaledNodeSize = (baseSize: number, nodeCount: number): number => {
 /**
  * Get mass for node type - higher mass = more repulsion in ForceAtlas2
  * Folders get MUCH higher mass so they spread out and pull their files with them
+ * Vault types (Project/Topic/Note/Person/Tag) get specialized mass for knowledge graph layout
  */
 const getNodeMass = (nodeType: NodeLabel, nodeCount: number): number => {
   // Scale mass based on graph size
   const baseMassMultiplier = nodeCount > 5000 ? 2 : nodeCount > 1000 ? 1.5 : 1;
 
   switch (nodeType) {
+    // Code mode node types
     case 'Project':
       return 50 * baseMassMultiplier; // Heaviest - anchors everything
     case 'Package':
@@ -69,6 +71,17 @@ const getNodeMass = (nodeType: NodeLabel, nodeCount: number): number => {
     case 'Function':
     case 'Method':
       return 2 * baseMassMultiplier; // Light
+
+    // Vault mode node types - knowledge graph layout
+    case 'Topic':
+      return 20 * baseMassMultiplier; // Sub-cluster center
+    case 'Note':
+      return 4 * baseMassMultiplier; // Leaf node
+    case 'Person':
+      return 3 * baseMassMultiplier; // Connector between clusters
+    case 'Tag':
+      return 2 * baseMassMultiplier; // Small leaf node
+
     default:
       return 1; // Default mass
   }
