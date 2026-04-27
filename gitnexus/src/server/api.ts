@@ -253,6 +253,19 @@ const getNodeQuery = (table: string, includeContent: boolean): string => {
   if (table === 'Tool') {
     return `MATCH (n:${tableLabel}) RETURN n.id AS id, n.name AS name, n.filePath AS filePath, n.description AS description`;
   }
+  // Vault-mode tables: no startLine/endLine columns
+  if (table === 'Note') {
+    return `MATCH (n:${tableLabel}) RETURN n.id AS id, n.name AS name, n.filePath AS filePath, n.title AS title, n.started AS started, n.ended AS ended, n.messageCount AS messageCount, n.outcome AS outcome, n.description AS description`;
+  }
+  if (table === 'Person') {
+    return `MATCH (n:${tableLabel}) RETURN n.id AS id, n.name AS name, n.email AS email, n.filePath AS filePath, n.description AS description`;
+  }
+  if (table === 'Project' || table === 'Topic') {
+    return `MATCH (n:${tableLabel}) RETURN n.id AS id, n.name AS name, n.filePath AS filePath, n.description AS description`;
+  }
+  if (table === 'Tag') {
+    return `MATCH (n:${tableLabel}) RETURN n.id AS id, n.name AS name, n.description AS description`;
+  }
   return includeContent
     ? `MATCH (n:${tableLabel}) RETURN n.id AS id, n.name AS name, n.filePath AS filePath, n.startLine AS startLine, n.endLine AS endLine, n.content AS content`
     : `MATCH (n:${tableLabel}) RETURN n.id AS id, n.name AS name, n.filePath AS filePath, n.startLine AS startLine, n.endLine AS endLine`;
@@ -279,6 +292,13 @@ const mapGraphNodeRow = (table: string, row: any, includeContent: boolean): Grap
     communities: row.communities,
     entryPointId: row.entryPointId,
     terminalId: row.terminalId,
+    // Vault-mode properties
+    title: row.title,
+    started: row.started,
+    ended: row.ended,
+    messageCount: row.messageCount,
+    outcome: row.outcome,
+    email: row.email,
   } as GraphNode['properties'],
 });
 
