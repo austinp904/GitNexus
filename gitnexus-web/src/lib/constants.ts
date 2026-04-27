@@ -38,6 +38,10 @@ export const NODE_COLORS: Record<NodeLabel, string> = {
   Template: '#a78bfa', // Violet light - like Type
   Route: '#f43f5e', // Rose - like Process
   Tool: '#a855f7', // Purple - like Project
+  Note: '#FF8C42', // Warm orange - vault content
+  Person: '#4ECDC4', // Teal-green - vault actors
+  Topic: '#FFC857', // Gold - vault organization
+  Tag: '#9CA3AF', // Muted gray - vault metadata
 };
 
 // Node sizes by type - clear visual hierarchy with dramatic size differences
@@ -79,6 +83,10 @@ export const NODE_SIZES: Record<NodeLabel, number> = {
   Template: 3, // Like Type
   Route: 5, // Like Enum
   Tool: 5, // Like Enum
+  Note: 4, // Vault content - medium node
+  Person: 5, // Vault actor - slightly larger
+  Topic: 8, // Vault organization - significant
+  Tag: 3, // Vault metadata - small
 };
 
 // Community color palette for cluster-based coloring
@@ -102,6 +110,7 @@ export const getCommunityColor = (communityIndex: number): string => {
 };
 
 // Labels to show by default (hide imports and variables by default as they clutter)
+// Includes both code nodes and vault nodes
 export const DEFAULT_VISIBLE_LABELS: NodeLabel[] = [
   'Project',
   'Package',
@@ -114,9 +123,14 @@ export const DEFAULT_VISIBLE_LABELS: NodeLabel[] = [
   'Interface',
   'Enum',
   'Type',
+  'Note',
+  'Person',
+  'Topic',
+  'Tag',
 ];
 
 // All filterable labels (in display order)
+// Includes code nodes and vault node types
 export const FILTERABLE_LABELS: NodeLabel[] = [
   'Folder',
   'File',
@@ -129,10 +143,27 @@ export const FILTERABLE_LABELS: NodeLabel[] = [
   'Variable',
   'Decorator',
   'Import',
+  'Note',
+  'Person',
+  'Topic',
+  'Tag',
 ];
 
 // Edge/Relation types
-export type EdgeType = 'CONTAINS' | 'DEFINES' | 'IMPORTS' | 'CALLS' | 'EXTENDS' | 'IMPLEMENTS';
+// Code relations: CONTAINS, DEFINES, IMPORTS, CALLS, EXTENDS, IMPLEMENTS
+// Vault relations: PARTICIPATES_IN, MEMBER_OF, TAGGED, LABELED, LINKS_TO
+export type EdgeType =
+  | 'CONTAINS'
+  | 'DEFINES'
+  | 'IMPORTS'
+  | 'CALLS'
+  | 'EXTENDS'
+  | 'IMPLEMENTS'
+  | 'PARTICIPATES_IN'
+  | 'MEMBER_OF'
+  | 'TAGGED'
+  | 'LABELED'
+  | 'LINKS_TO';
 
 export const ALL_EDGE_TYPES: EdgeType[] = [
   'CONTAINS',
@@ -141,6 +172,11 @@ export const ALL_EDGE_TYPES: EdgeType[] = [
   'CALLS',
   'EXTENDS',
   'IMPLEMENTS',
+  'PARTICIPATES_IN',
+  'MEMBER_OF',
+  'TAGGED',
+  'LABELED',
+  'LINKS_TO',
 ];
 
 // Default visible edges (CALLS hidden by default to reduce clutter)
@@ -161,4 +197,9 @@ export const EDGE_INFO: Record<EdgeType, { color: string; label: string }> = {
   CALLS: { color: '#7c3aed', label: 'Calls' },
   EXTENDS: { color: '#c2410c', label: 'Extends' },
   IMPLEMENTS: { color: '#be185d', label: 'Implements' },
+  PARTICIPATES_IN: { color: '#4ECDC4', label: 'Participates' },
+  MEMBER_OF: { color: '#E91E63', label: 'Member of' },
+  TAGGED: { color: '#FFC857', label: 'Tagged' },
+  LABELED: { color: '#9CA3AF', label: 'Labeled' },
+  LINKS_TO: { color: '#FF8C42', label: 'Links to' },
 };
