@@ -14,6 +14,10 @@ const LEGEND_LABELS: NodeLabel[] = [
   'Method',
   'Variable',
   'Decorator',
+  'Note',
+  'Person',
+  'Topic',
+  'Tag',
 ];
 
 const ICON_MAP: Record<string, string> = {
@@ -28,6 +32,10 @@ const ICON_MAP: Record<string, string> = {
   Decorator: 'AtSign',
   Import: 'FileCode',
   Variable: 'Variable',
+  Note: 'FileText',
+  Person: 'User',
+  Topic: 'Hash',
+  Tag: 'Tag',
 };
 
 describe('filter panel icon mappings', () => {
@@ -81,6 +89,10 @@ describe('color legend', () => {
       'Method',
       'Variable',
       'Decorator',
+      'Note',
+      'Person',
+      'Topic',
+      'Tag',
     ];
     expect(LEGEND_LABELS).toEqual(expected);
   });
