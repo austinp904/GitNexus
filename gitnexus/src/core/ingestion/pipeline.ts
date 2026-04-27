@@ -34,6 +34,7 @@ import {
   mroPhase,
   communitiesPhase,
   processesPhase,
+  vaultPhase,
   type PipelinePhase,
   type CommunitiesOutput,
   type ProcessesOutput,
@@ -55,6 +56,19 @@ export interface PipelineOptions {
     minFiles?: number;
     minBytes?: number;
   };
+  /**
+   * Ingestion mode selector.
+   * - `'code'` (default behavior): code-only phases.
+   * - `'vault'`: include the vault phase (Markdown vault ingestion).
+   * - `'hybrid'`: include both code phases and the vault phase.
+   * - `'auto'`: include the vault phase only when {@link detectedVault} is true.
+   */
+  mode?: 'auto' | 'vault' | 'code' | 'hybrid';
+  /**
+   * Set by upstream auto-detection (see run-analyze) to indicate the repo
+   * looks like an Obsidian/Markdown vault. Only consulted when `mode === 'auto'`.
+   */
+  detectedVault?: boolean;
 }
 
 // ── Phase registry ─────────────────────────────────────────────────────────
@@ -84,8 +98,18 @@ function buildPhaseList(options?: PipelineOptions): PipelinePhase[] {
     scopeResolutionPhase,
   ];
 
+  // Vault mode: include the vault phase when explicitly requested or auto-detected.
+  const wantsVault =
+    options?.mode === 'vault' ||
+    options?.mode === 'hybrid' ||
+    (options?.mode === 'auto' && options?.detectedVault === true);
+  if (wantsVault) {
+    phases.push(vaultPhase);
+  }
+
   if (!options?.skipGraphPhases) {
     phases.push(mroPhase, communitiesPhase, processesPhase);
+    // vaultCommunitiesPhase will be added in Task 5.2
   }
 
   return phases;
