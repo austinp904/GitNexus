@@ -5,6 +5,7 @@ import {
   Folder,
   FolderOpen,
   FileCode,
+  FileText,
   Search,
   Filter,
   PanelLeftClose,
@@ -17,6 +18,9 @@ import {
   List,
   AtSign,
   Type,
+  User,
+  Briefcase,
+  Tag,
 } from '@/lib/lucide-icons';
 import { useAppState } from '../hooks/useAppState';
 import { FILTERABLE_LABELS, NODE_COLORS, ALL_EDGE_TYPES, EDGE_INFO } from '../lib/constants';
@@ -201,6 +205,16 @@ const getNodeTypeIcon = (label: NodeLabel) => {
       return FileCode;
     case 'Variable':
       return Variable;
+    case 'Project':
+      return Briefcase;
+    case 'Note':
+      return FileText;
+    case 'Person':
+      return User;
+    case 'Topic':
+      return Hash;
+    case 'Tag':
+      return Tag;
     default:
       return Variable;
   }
@@ -539,6 +553,11 @@ export const FileTreePanel = ({ onFocusNode }: FileTreePanelProps) => {
                   'Method',
                   'Variable',
                   'Decorator',
+                  'Project',
+                  'Note',
+                  'Person',
+                  'Topic',
+                  'Tag',
                 ] as NodeLabel[]
               ).map((label) => (
                 <div key={label} className="flex items-center gap-1.5">
