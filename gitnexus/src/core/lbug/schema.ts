@@ -244,6 +244,16 @@ CREATE NODE TABLE Person (
   PRIMARY KEY (id)
 )`;
 
+// Project entity (cross-cutting work category)
+export const PROJECT_SCHEMA = `
+CREATE NODE TABLE Project (
+  id STRING,
+  name STRING,
+  filePath STRING,
+  description STRING,
+  PRIMARY KEY (id)
+)`;
+
 // Topic/theme entity
 export const TOPIC_SCHEMA = `
 CREATE NODE TABLE Topic (
@@ -473,6 +483,17 @@ CREATE REL TABLE ${REL_TABLE_NAME} (
   FROM CodeElement TO Process,
   FROM Route TO Process,
   FROM Tool TO Process,
+  FROM File TO Note,
+  FROM Folder TO Note,
+  FROM Section TO Note,
+  FROM Note TO File,
+  FROM Person TO Note,
+  FROM Note TO Project,
+  FROM Note TO Topic,
+  FROM Note TO Tag,
+  FROM Note TO Note,
+  FROM Note TO Person,
+  FROM Note TO Section,
   type STRING,
   confidence DOUBLE,
   reason STRING,
@@ -566,6 +587,7 @@ export const NODE_SCHEMA_QUERIES = [
   // Vault mode
   NOTE_SCHEMA,
   PERSON_SCHEMA,
+  PROJECT_SCHEMA,
   TOPIC_SCHEMA,
   TAG_SCHEMA,
 ];

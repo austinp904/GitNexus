@@ -602,6 +602,18 @@ const getCopyQuery = (table: NodeTableName, filePath: string): string => {
   if (table === 'Method') {
     return `COPY ${t}(id, name, filePath, startLine, endLine, isExported, content, description, parameterCount, returnType) FROM "${filePath}" ${COPY_CSV_OPTS}`;
   }
+  if (table === 'Note') {
+    return `COPY ${t}(id, name, filePath, title, started, ended, durationDays, messageCount, outcome, hasAttachments, frontmatterJson, frontmatterRaw, description) FROM "${filePath}" ${COPY_CSV_OPTS}`;
+  }
+  if (table === 'Person') {
+    return `COPY ${t}(id, name, email, filePath, description) FROM "${filePath}" ${COPY_CSV_OPTS}`;
+  }
+  if (table === 'Project' || table === 'Topic') {
+    return `COPY ${t}(id, name, filePath, description) FROM "${filePath}" ${COPY_CSV_OPTS}`;
+  }
+  if (table === 'Tag') {
+    return `COPY ${t}(id, name, description) FROM "${filePath}" ${COPY_CSV_OPTS}`;
+  }
   // TypeScript/JS code element tables have isExported; multi-language tables do not
   if (TABLES_WITH_EXPORTED.has(table)) {
     return `COPY ${t}(id, name, filePath, startLine, endLine, isExported, content, description) FROM "${filePath}" ${COPY_CSV_OPTS}`;

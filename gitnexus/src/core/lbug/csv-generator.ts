@@ -278,6 +278,25 @@ export const streamAllCSVsToDisk = async (
     'id,name,filePath,description',
   );
 
+  // Vault mode writers
+  const noteWriter = new BufferedCSVWriter(
+    path.join(csvDir, 'note.csv'),
+    'id,name,filePath,title,started,ended,durationDays,messageCount,outcome,hasAttachments,frontmatterJson,frontmatterRaw,description',
+  );
+  const personWriter = new BufferedCSVWriter(
+    path.join(csvDir, 'person.csv'),
+    'id,name,email,filePath,description',
+  );
+  const projectWriter = new BufferedCSVWriter(
+    path.join(csvDir, 'project.csv'),
+    'id,name,filePath,description',
+  );
+  const topicWriter = new BufferedCSVWriter(
+    path.join(csvDir, 'topic.csv'),
+    'id,name,filePath,description',
+  );
+  const tagWriter = new BufferedCSVWriter(path.join(csvDir, 'tag.csv'), 'id,name,description');
+
   // Multi-language node types share the same CSV shape (no isExported column)
   const multiLangHeader = 'id,name,filePath,startLine,endLine,content,description';
   const MULTI_LANG_TYPES = [
@@ -447,6 +466,65 @@ export const streamAllCSVsToDisk = async (
           ].join(','),
         );
         break;
+      case 'Note':
+        await noteWriter.addRow(
+          [
+            escapeCSVField(node.id),
+            escapeCSVField(node.properties.name || ''),
+            escapeCSVField(node.properties.filePath || ''),
+            escapeCSVField(node.properties.title || ''),
+            escapeCSVField(node.properties.started || ''),
+            escapeCSVField(node.properties.ended || ''),
+            escapeCSVNumber(node.properties.durationDays, 0),
+            escapeCSVNumber(node.properties.messageCount, 0),
+            escapeCSVField(node.properties.outcome || ''),
+            node.properties.hasAttachments ? 'true' : 'false',
+            escapeCSVField(node.properties.frontmatterJson || ''),
+            escapeCSVField(node.properties.frontmatterRaw || ''),
+            escapeCSVField(node.properties.description || ''),
+          ].join(','),
+        );
+        break;
+      case 'Person':
+        await personWriter.addRow(
+          [
+            escapeCSVField(node.id),
+            escapeCSVField(node.properties.name || ''),
+            escapeCSVField(node.properties.email || ''),
+            escapeCSVField(node.properties.filePath || ''),
+            escapeCSVField(node.properties.description || ''),
+          ].join(','),
+        );
+        break;
+      case 'Project':
+        await projectWriter.addRow(
+          [
+            escapeCSVField(node.id),
+            escapeCSVField(node.properties.name || ''),
+            escapeCSVField(node.properties.filePath || ''),
+            escapeCSVField(node.properties.description || ''),
+          ].join(','),
+        );
+        break;
+      case 'Topic':
+        await topicWriter.addRow(
+          [
+            escapeCSVField(node.id),
+            escapeCSVField(node.properties.name || ''),
+            escapeCSVField(node.properties.filePath || ''),
+            escapeCSVField(node.properties.description || ''),
+          ].join(','),
+        );
+        break;
+      case 'Tag':
+        await tagWriter.addRow(
+          [
+            escapeCSVField(node.id),
+            escapeCSVField(node.properties.name || ''),
+            escapeCSVField(node.properties.description || ''),
+          ].join(','),
+        );
+        break;
       default: {
         // Code element nodes (Function, Class, Interface, CodeElement)
         const writer = codeWriterMap[node.label];
@@ -501,6 +579,11 @@ export const streamAllCSVsToDisk = async (
     sectionWriter,
     routeWriter,
     toolWriter,
+    noteWriter,
+    personWriter,
+    projectWriter,
+    topicWriter,
+    tagWriter,
     ...multiLangWriters.values(),
   ];
   await Promise.all(allWriters.map((w) => w.finish()));
@@ -537,6 +620,11 @@ export const streamAllCSVsToDisk = async (
     ['Section' as NodeTableName, sectionWriter],
     ['Route' as NodeTableName, routeWriter],
     ['Tool' as NodeTableName, toolWriter],
+    ['Note' as NodeTableName, noteWriter],
+    ['Person' as NodeTableName, personWriter],
+    ['Project' as NodeTableName, projectWriter],
+    ['Topic' as NodeTableName, topicWriter],
+    ['Tag' as NodeTableName, tagWriter],
     ...Array.from(multiLangWriters.entries()).map(
       ([name, w]) => [name as NodeTableName, w] as [NodeTableName, BufferedCSVWriter],
     ),

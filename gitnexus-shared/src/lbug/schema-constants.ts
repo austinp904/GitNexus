@@ -40,6 +40,12 @@ export const NODE_TABLES = [
   'Module',
   'Route',
   'Tool',
+  // Vault mode
+  'Note',
+  'Person',
+  'Project',
+  'Topic',
+  'Tag',
 ] as const;
 
 export type NodeTableName = (typeof NODE_TABLES)[number];
@@ -67,6 +73,11 @@ export const REL_TYPES = [
   'ENTRY_POINT_OF',
   'WRAPS',
   'QUERIES',
+  // Vault mode
+  'PARTICIPATES_IN',
+  'TAGGED',
+  'LABELED',
+  'LINKS_TO',
 ] as const;
 
 export type RelType = (typeof REL_TYPES)[number];

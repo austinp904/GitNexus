@@ -94,6 +94,17 @@ export type NodeProperties = {
   responseKeys?: string[];
   errorKeys?: string[];
   middleware?: string[];
+  // Vault mode
+  email?: string;
+  title?: string;
+  started?: string;
+  ended?: string;
+  durationDays?: number;
+  messageCount?: number;
+  outcome?: string;
+  hasAttachments?: boolean;
+  frontmatterJson?: string;
+  frontmatterRaw?: string;
   // Extensible
   [key: string]: unknown;
 };
