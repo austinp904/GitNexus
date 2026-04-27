@@ -15,6 +15,7 @@ import { useAppState } from '../hooks/useAppState';
 import {
   knowledgeGraphToGraphology,
   filterGraphByDepth,
+  computeCategoryHiddenNodeIds,
   SigmaNodeAttributes,
   SigmaEdgeAttributes,
 } from '../lib/graph-adapter';
@@ -33,6 +34,8 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle>((_, ref) => {
     selectedNode: appSelectedNode,
     visibleLabels,
     visibleEdgeTypes,
+    hiddenProjects,
+    hiddenTopics,
     openCodePanel,
     depthFilter,
     highlightedNodeIds,
@@ -200,10 +203,20 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle>((_, ref) => {
     const sigmaGraph = sigma.getGraph() as Graph<SigmaNodeAttributes, SigmaEdgeAttributes>;
     if (sigmaGraph.order === 0) return; // Don't filter empty graph
 
-    filterGraphByDepth(sigmaGraph, appSelectedNode?.id || null, depthFilter, visibleLabels);
+    const categoryHidden = graph
+      ? computeCategoryHiddenNodeIds(graph, hiddenProjects, hiddenTopics)
+      : undefined;
+
+    filterGraphByDepth(
+      sigmaGraph,
+      appSelectedNode?.id || null,
+      depthFilter,
+      visibleLabels,
+      categoryHidden,
+    );
     sigma.refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sigmaRef identity never changes
-  }, [visibleLabels, depthFilter, appSelectedNode]);
+  }, [visibleLabels, depthFilter, appSelectedNode, hiddenProjects, hiddenTopics, graph]);
 
   // Sync app selected node with sigma
   useEffect(() => {

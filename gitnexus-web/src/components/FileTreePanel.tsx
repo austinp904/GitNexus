@@ -24,6 +24,7 @@ import {
 } from '@/lib/lucide-icons';
 import { useAppState } from '../hooks/useAppState';
 import { FILTERABLE_LABELS, NODE_COLORS, ALL_EDGE_TYPES, EDGE_INFO } from '../lib/constants';
+import { CategoriesPanel } from './CategoriesPanel';
 import type { GraphNode, NodeLabel } from 'gitnexus-shared';
 
 // Tree node structure
@@ -236,12 +237,16 @@ export const FileTreePanel = ({ onFocusNode }: FileTreePanelProps) => {
     openCodePanel,
     depthFilter,
     setDepthFilter,
+    hiddenProjects,
+    hiddenTopics,
+    toggleProject,
+    toggleTopic,
   } = useAppState();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<'files' | 'filters'>('files');
+  const [activeTab, setActiveTab] = useState<'files' | 'filters' | 'categories'>('files');
 
   // Build file tree from graph
   const fileTree = useMemo(() => {
@@ -342,6 +347,16 @@ export const FileTreePanel = ({ onFocusNode }: FileTreePanelProps) => {
         >
           <Filter className="h-5 w-5" />
         </button>
+        <button
+          onClick={() => {
+            setIsCollapsed(false);
+            setActiveTab('categories');
+          }}
+          className={`rounded p-2 transition-colors ${activeTab === 'categories' ? 'bg-accent/10 text-accent' : 'text-text-secondary hover:bg-hover hover:text-text-primary'}`}
+          title="Categories"
+        >
+          <Briefcase className="h-5 w-5" />
+        </button>
       </div>
     );
   }
@@ -370,6 +385,16 @@ export const FileTreePanel = ({ onFocusNode }: FileTreePanelProps) => {
             }`}
           >
             Filters
+          </button>
+          <button
+            onClick={() => setActiveTab('categories')}
+            className={`rounded px-2 py-1 text-xs transition-colors ${
+              activeTab === 'categories'
+                ? 'bg-accent/20 text-accent'
+                : 'text-text-secondary hover:bg-hover hover:text-text-primary'
+            }`}
+          >
+            Categories
           </button>
         </div>
         <button
@@ -570,6 +595,18 @@ export const FileTreePanel = ({ onFocusNode }: FileTreePanelProps) => {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'categories' && (
+        <div className="scrollbar-thin flex-1 overflow-y-auto">
+          <CategoriesPanel
+            nodes={graph?.nodes ?? []}
+            hiddenProjects={hiddenProjects}
+            hiddenTopics={hiddenTopics}
+            onToggleProject={toggleProject}
+            onToggleTopic={toggleTopic}
+          />
         </div>
       )}
 

@@ -3,6 +3,53 @@ import type { NodeLabel } from 'gitnexus-shared';
 import type { KnowledgeGraph } from '../core/graph/types';
 import { NODE_COLORS, NODE_SIZES, getCommunityColor } from './constants';
 
+/**
+ * Compute the set of node IDs that should be hidden because they are members
+ * of a hidden Project (via MEMBER_OF) or tagged with a hidden Topic (via TAGGED).
+ *
+ * Walks the source KnowledgeGraph relationships rather than the graphology
+ * graph because edge attributes (specifically the `type` discriminator) are
+ * preserved more reliably on the source side, and project/topic membership
+ * lookups need both the relation type and the target node label.
+ */
+export const computeCategoryHiddenNodeIds = (
+  knowledgeGraph: KnowledgeGraph,
+  hiddenProjects: Set<string>,
+  hiddenTopics: Set<string>,
+): Set<string> => {
+  const hidden = new Set<string>();
+  if (hiddenProjects.size === 0 && hiddenTopics.size === 0) return hidden;
+
+  // Map nodeId -> { label, name } so we can resolve relationship targets fast.
+  const nodeMeta = new Map<string, { label: NodeLabel; name: string }>();
+  for (const n of knowledgeGraph.nodes) {
+    nodeMeta.set(n.id, {
+      label: n.label,
+      name: String(n.properties?.name ?? ''),
+    });
+  }
+
+  for (const rel of knowledgeGraph.relationships) {
+    const target = nodeMeta.get(rel.targetId);
+    if (!target) continue;
+
+    if (rel.type === 'MEMBER_OF' && target.label === 'Project') {
+      if (hiddenProjects.has(target.name)) {
+        hidden.add(rel.sourceId);
+        // Also hide the Project node itself when it's filtered out
+        hidden.add(rel.targetId);
+      }
+    } else if (rel.type === 'TAGGED' && target.label === 'Topic') {
+      if (hiddenTopics.has(target.name)) {
+        hidden.add(rel.sourceId);
+        hidden.add(rel.targetId);
+      }
+    }
+  }
+
+  return hidden;
+};
+
 export interface SigmaNodeAttributes {
   x: number;
   y: number;
@@ -331,15 +378,19 @@ export const knowledgeGraphToGraphology = (
 };
 
 /**
- * Filter nodes by visibility - sets hidden attribute
+ * Filter nodes by visibility - sets hidden attribute.
+ * Optionally also hides nodes whose IDs appear in `categoryHiddenNodeIds`
+ * (used for Project/Topic membership filters).
  */
 export const filterGraphByLabels = (
   graph: Graph<SigmaNodeAttributes, SigmaEdgeAttributes>,
   visibleLabels: NodeLabel[],
+  categoryHiddenNodeIds?: Set<string>,
 ): void => {
   graph.forEachNode((nodeId, attributes) => {
-    const isVisible = visibleLabels.includes(attributes.nodeType);
-    graph.setNodeAttribute(nodeId, 'hidden', !isVisible);
+    const isVisibleByLabel = visibleLabels.includes(attributes.nodeType);
+    const isHiddenByCategory = categoryHiddenNodeIds?.has(nodeId) ?? false;
+    graph.setNodeAttribute(nodeId, 'hidden', !isVisibleByLabel || isHiddenByCategory);
   });
 };
 
@@ -373,21 +424,24 @@ export const getNodesWithinHops = (
 };
 
 /**
- * Filter nodes by depth from selected node
+ * Filter nodes by depth from selected node.
+ * Optionally also hides nodes whose IDs appear in `categoryHiddenNodeIds`
+ * (used for Project/Topic membership filters).
  */
 export const filterGraphByDepth = (
   graph: Graph<SigmaNodeAttributes, SigmaEdgeAttributes>,
   selectedNodeId: string | null,
   maxHops: number | null,
   visibleLabels: NodeLabel[],
+  categoryHiddenNodeIds?: Set<string>,
 ): void => {
   if (maxHops === null) {
-    filterGraphByLabels(graph, visibleLabels);
+    filterGraphByLabels(graph, visibleLabels, categoryHiddenNodeIds);
     return;
   }
 
   if (selectedNodeId === null || !graph.hasNode(selectedNodeId)) {
-    filterGraphByLabels(graph, visibleLabels);
+    filterGraphByLabels(graph, visibleLabels, categoryHiddenNodeIds);
     return;
   }
 
@@ -396,6 +450,7 @@ export const filterGraphByDepth = (
   graph.forEachNode((nodeId, attributes) => {
     const isLabelVisible = visibleLabels.includes(attributes.nodeType);
     const isInRange = nodesInRange.has(nodeId);
-    graph.setNodeAttribute(nodeId, 'hidden', !isLabelVisible || !isInRange);
+    const isHiddenByCategory = categoryHiddenNodeIds?.has(nodeId) ?? false;
+    graph.setNodeAttribute(nodeId, 'hidden', !isLabelVisible || !isInRange || isHiddenByCategory);
   });
 };

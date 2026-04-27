@@ -106,6 +106,12 @@ interface AppState {
   visibleEdgeTypes: EdgeType[];
   toggleEdgeVisibility: (edgeType: EdgeType) => void;
 
+  // Vault category filters
+  hiddenProjects: Set<string>;
+  hiddenTopics: Set<string>;
+  toggleProject: (name: string) => void;
+  toggleTopic: (name: string) => void;
+
   // Depth filter (N hops from selection)
   depthFilter: number | null;
   setDepthFilter: (depth: number | null) => void;
@@ -219,6 +225,10 @@ const AppStateProviderInner = ({ children }: { children: ReactNode }) => {
     setDepthFilter,
     highlightedNodeIds,
     setHighlightedNodeIds,
+    hiddenProjects,
+    hiddenTopics,
+    toggleProject,
+    toggleTopic,
   } = useGraphState();
 
   // Right Panel
@@ -1226,6 +1236,10 @@ const AppStateProviderInner = ({ children }: { children: ReactNode }) => {
     toggleLabelVisibility,
     visibleEdgeTypes,
     toggleEdgeVisibility,
+    hiddenProjects,
+    hiddenTopics,
+    toggleProject,
+    toggleTopic,
     depthFilter,
     setDepthFilter,
     highlightedNodeIds,

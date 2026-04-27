@@ -16,6 +16,12 @@ interface GraphStateContextValue {
   setDepthFilter: (depth: number | null) => void;
   highlightedNodeIds: Set<string>;
   setHighlightedNodeIds: (ids: Set<string>) => void;
+  // Vault category filters: hide all nodes that belong to a Project (MEMBER_OF)
+  // or Topic (TAGGED) whose name appears in these sets.
+  hiddenProjects: Set<string>;
+  hiddenTopics: Set<string>;
+  toggleProject: (name: string) => void;
+  toggleTopic: (name: string) => void;
 }
 
 const GraphStateContext = createContext<GraphStateContextValue | null>(null);
@@ -27,6 +33,26 @@ export const GraphStateProvider = ({ children }: { children: ReactNode }) => {
   const [visibleEdgeTypes, setVisibleEdgeTypes] = useState<EdgeType[]>(DEFAULT_VISIBLE_EDGES);
   const [depthFilter, setDepthFilter] = useState<number | null>(null);
   const [highlightedNodeIds, setHighlightedNodeIds] = useState<Set<string>>(new Set());
+  const [hiddenProjects, setHiddenProjects] = useState<Set<string>>(new Set());
+  const [hiddenTopics, setHiddenTopics] = useState<Set<string>>(new Set());
+
+  const toggleProject = useCallback((name: string) => {
+    setHiddenProjects((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }, []);
+
+  const toggleTopic = useCallback((name: string) => {
+    setHiddenTopics((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }, []);
 
   const toggleLabelVisibility = useCallback((label: NodeLabel) => {
     setVisibleLabels((prev) =>
@@ -54,8 +80,23 @@ export const GraphStateProvider = ({ children }: { children: ReactNode }) => {
       setDepthFilter,
       highlightedNodeIds,
       setHighlightedNodeIds,
+      hiddenProjects,
+      hiddenTopics,
+      toggleProject,
+      toggleTopic,
     }),
-    [graph, selectedNode, visibleLabels, visibleEdgeTypes, depthFilter, highlightedNodeIds],
+    [
+      graph,
+      selectedNode,
+      visibleLabels,
+      visibleEdgeTypes,
+      depthFilter,
+      highlightedNodeIds,
+      hiddenProjects,
+      hiddenTopics,
+      toggleProject,
+      toggleTopic,
+    ],
   );
 
   return <GraphStateContext.Provider value={value}>{children}</GraphStateContext.Provider>;
