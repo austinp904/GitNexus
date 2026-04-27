@@ -112,6 +112,12 @@ interface AppState {
   toggleProject: (name: string) => void;
   toggleTopic: (name: string) => void;
 
+  // Edge density filters
+  hideIntraClusterEdges: boolean;
+  setHideIntraClusterEdges: (v: boolean) => void;
+  edgeConfidenceMin: number;
+  setEdgeConfidenceMin: (v: number) => void;
+
   // Depth filter (N hops from selection)
   depthFilter: number | null;
   setDepthFilter: (depth: number | null) => void;
@@ -229,6 +235,10 @@ const AppStateProviderInner = ({ children }: { children: ReactNode }) => {
     hiddenTopics,
     toggleProject,
     toggleTopic,
+    hideIntraClusterEdges,
+    setHideIntraClusterEdges,
+    edgeConfidenceMin,
+    setEdgeConfidenceMin,
   } = useGraphState();
 
   // Right Panel
@@ -1240,6 +1250,10 @@ const AppStateProviderInner = ({ children }: { children: ReactNode }) => {
     hiddenTopics,
     toggleProject,
     toggleTopic,
+    hideIntraClusterEdges,
+    setHideIntraClusterEdges,
+    edgeConfidenceMin,
+    setEdgeConfidenceMin,
     depthFilter,
     setDepthFilter,
     highlightedNodeIds,

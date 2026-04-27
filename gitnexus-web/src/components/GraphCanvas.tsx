@@ -16,6 +16,8 @@ import {
   knowledgeGraphToGraphology,
   filterGraphByDepth,
   computeCategoryHiddenNodeIds,
+  computeNodePrimaryProject,
+  applyEdgeDensityFilters,
   SigmaNodeAttributes,
   SigmaEdgeAttributes,
 } from '../lib/graph-adapter';
@@ -36,6 +38,8 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle>((_, ref) => {
     visibleEdgeTypes,
     hiddenProjects,
     hiddenTopics,
+    hideIntraClusterEdges,
+    edgeConfidenceMin,
     openCodePanel,
     depthFilter,
     highlightedNodeIds,
@@ -214,9 +218,28 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle>((_, ref) => {
       visibleLabels,
       categoryHidden,
     );
+
+    const nodePrimaryProject =
+      graph && hideIntraClusterEdges ? computeNodePrimaryProject(graph) : null;
+    applyEdgeDensityFilters(
+      sigmaGraph,
+      hideIntraClusterEdges,
+      edgeConfidenceMin,
+      nodePrimaryProject,
+    );
+
     sigma.refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sigmaRef identity never changes
-  }, [visibleLabels, depthFilter, appSelectedNode, hiddenProjects, hiddenTopics, graph]);
+  }, [
+    visibleLabels,
+    depthFilter,
+    appSelectedNode,
+    hiddenProjects,
+    hiddenTopics,
+    hideIntraClusterEdges,
+    edgeConfidenceMin,
+    graph,
+  ]);
 
   // Sync app selected node with sigma
   useEffect(() => {

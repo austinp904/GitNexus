@@ -241,6 +241,10 @@ export const FileTreePanel = ({ onFocusNode }: FileTreePanelProps) => {
     hiddenTopics,
     toggleProject,
     toggleTopic,
+    hideIntraClusterEdges,
+    setHideIntraClusterEdges,
+    edgeConfidenceMin,
+    setEdgeConfidenceMin,
   } = useAppState();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -520,6 +524,44 @@ export const FileTreePanel = ({ onFocusNode }: FileTreePanelProps) => {
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Edge Density Filters */}
+          <div className="mt-6 border-t border-border-subtle pt-4">
+            <h3 className="mb-2 text-xs font-medium tracking-wide text-text-secondary uppercase">
+              Edge Density
+            </h3>
+            <p className="mb-3 text-[11px] text-text-muted">
+              Reduce visual clutter by hiding edges within a cluster or below a confidence floor
+            </p>
+
+            <label className="flex cursor-pointer items-center gap-2 px-1 py-1">
+              <input
+                type="checkbox"
+                checked={hideIntraClusterEdges}
+                onChange={(e) => setHideIntraClusterEdges(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-border-subtle bg-elevated accent-accent"
+              />
+              <span className="text-xs text-text-primary">Hide intra-cluster edges</span>
+            </label>
+
+            <div className="mt-3 px-1">
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-[11px] text-text-secondary">Edge confidence ≥</span>
+                <span className="font-mono text-[11px] text-text-primary">
+                  {edgeConfidenceMin.toFixed(2)}
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={edgeConfidenceMin}
+                onChange={(e) => setEdgeConfidenceMin(parseFloat(e.target.value))}
+                className="w-full accent-accent"
+              />
             </div>
           </div>
 

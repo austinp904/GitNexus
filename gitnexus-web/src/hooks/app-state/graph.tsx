@@ -22,6 +22,12 @@ interface GraphStateContextValue {
   hiddenTopics: Set<string>;
   toggleProject: (name: string) => void;
   toggleTopic: (name: string) => void;
+  // Edge density filters: hide intra-cluster edges (both endpoints share the
+  // same primary MEMBER_OF Project) and drop edges below a confidence floor.
+  hideIntraClusterEdges: boolean;
+  setHideIntraClusterEdges: (v: boolean) => void;
+  edgeConfidenceMin: number;
+  setEdgeConfidenceMin: (v: number) => void;
 }
 
 const GraphStateContext = createContext<GraphStateContextValue | null>(null);
@@ -35,6 +41,8 @@ export const GraphStateProvider = ({ children }: { children: ReactNode }) => {
   const [highlightedNodeIds, setHighlightedNodeIds] = useState<Set<string>>(new Set());
   const [hiddenProjects, setHiddenProjects] = useState<Set<string>>(new Set());
   const [hiddenTopics, setHiddenTopics] = useState<Set<string>>(new Set());
+  const [hideIntraClusterEdges, setHideIntraClusterEdges] = useState(false);
+  const [edgeConfidenceMin, setEdgeConfidenceMin] = useState(0);
 
   const toggleProject = useCallback((name: string) => {
     setHiddenProjects((prev) => {
@@ -84,6 +92,10 @@ export const GraphStateProvider = ({ children }: { children: ReactNode }) => {
       hiddenTopics,
       toggleProject,
       toggleTopic,
+      hideIntraClusterEdges,
+      setHideIntraClusterEdges,
+      edgeConfidenceMin,
+      setEdgeConfidenceMin,
     }),
     [
       graph,
@@ -96,6 +108,8 @@ export const GraphStateProvider = ({ children }: { children: ReactNode }) => {
       hiddenTopics,
       toggleProject,
       toggleTopic,
+      hideIntraClusterEdges,
+      edgeConfidenceMin,
     ],
   );
 

@@ -75,6 +75,19 @@ export interface SigmaEdgeAttributes {
   type?: string;
   curvature?: number;
   zIndex?: number;
+  /**
+   * Confidence stored on the deduped graphology edge — set to the MAX
+   * confidence across all source-side relationships that mapped onto the
+   * same `(source, target)` pair. Used by the edge confidence slider to
+   * drop low-confidence edges (e.g. unresolved wikilinks at 0.9).
+   */
+  confidence?: number;
+  /**
+   * Set by `applyEdgeDensityFilters` when an edge is below the confidence
+   * threshold or both endpoints share the same primary MEMBER_OF Project.
+   * The Sigma edgeReducer honors this flag to skip rendering.
+   */
+  hidden?: boolean;
 }
 
 /**
@@ -359,6 +372,7 @@ export const knowledgeGraphToGraphology = (
 
   knowledgeGraph.relationships.forEach((rel) => {
     if (graph.hasNode(rel.sourceId) && graph.hasNode(rel.targetId)) {
+      const relConfidence = typeof rel.confidence === 'number' ? rel.confidence : 1;
       if (!graph.hasEdge(rel.sourceId, rel.targetId)) {
         const style = EDGE_STYLES[rel.type] || { color: '#4a4a5a', sizeMultiplier: 0.5 };
         const curvature = 0.12 + Math.random() * 0.08;
@@ -369,12 +383,99 @@ export const knowledgeGraphToGraphology = (
           relationType: rel.type,
           type: 'curved',
           curvature: curvature,
+          confidence: relConfidence,
         });
+      } else {
+        // Edge already exists from a prior relationship between this pair —
+        // keep the highest confidence so the slider's "min" semantics behave
+        // correctly when one of the underlying rels is high-confidence.
+        const edgeKey = graph.edge(rel.sourceId, rel.targetId);
+        const existing = graph.getEdgeAttribute(edgeKey, 'confidence') ?? 1;
+        if (relConfidence > existing) {
+          graph.setEdgeAttribute(edgeKey, 'confidence', relConfidence);
+        }
       }
     }
   });
 
   return graph;
+};
+
+/**
+ * Build a map of nodeId → primary Project name (the FIRST `MEMBER_OF Project`
+ * relationship encountered). Used by the "Hide intra-cluster edges" filter so
+ * we can detect when both endpoints belong to the same project cluster.
+ *
+ * "Primary" is approximate: a node may be MEMBER_OF multiple projects, but
+ * for visual de-cluttering it's enough that the first project we see is
+ * stable across edges (relationships are built deterministically from the
+ * source DB, so iteration order is stable per-graph).
+ */
+export const computeNodePrimaryProject = (knowledgeGraph: KnowledgeGraph): Map<string, string> => {
+  const nodeProject = new Map<string, string>();
+  if (knowledgeGraph.relationships.length === 0) return nodeProject;
+
+  const nodeMeta = new Map<string, { label: NodeLabel; name: string }>();
+  for (const n of knowledgeGraph.nodes) {
+    nodeMeta.set(n.id, {
+      label: n.label,
+      name: String(n.properties?.name ?? ''),
+    });
+  }
+
+  for (const rel of knowledgeGraph.relationships) {
+    if (rel.type !== 'MEMBER_OF') continue;
+    const target = nodeMeta.get(rel.targetId);
+    if (!target || target.label !== 'Project') continue;
+    if (!nodeProject.has(rel.sourceId)) {
+      nodeProject.set(rel.sourceId, target.name);
+    }
+  }
+
+  return nodeProject;
+};
+
+/**
+ * Walk the graphology graph and set the `hidden` flag on edges that should
+ * be filtered out by the edge density controls in the Filters panel.
+ *
+ * Two filters are combined:
+ *   - confidence < edgeConfidenceMin
+ *   - intra-cluster: both endpoints share the same primary MEMBER_OF Project
+ *
+ * Always called from the same useEffect that runs node visibility filters,
+ * so callers can rely on `sigma.refresh()` afterwards to repaint.
+ */
+export const applyEdgeDensityFilters = (
+  graph: Graph<SigmaNodeAttributes, SigmaEdgeAttributes>,
+  hideIntraCluster: boolean,
+  edgeConfidenceMin: number,
+  nodePrimaryProject: Map<string, string> | null,
+): void => {
+  const noFilters = !hideIntraCluster && edgeConfidenceMin <= 0;
+  graph.forEachEdge((edge, attrs, source, target) => {
+    if (noFilters) {
+      if (attrs.hidden) graph.setEdgeAttribute(edge, 'hidden', false);
+      return;
+    }
+
+    let hide = false;
+
+    if (edgeConfidenceMin > 0) {
+      const c = typeof attrs.confidence === 'number' ? attrs.confidence : 1;
+      if (c < edgeConfidenceMin) hide = true;
+    }
+
+    if (!hide && hideIntraCluster && nodePrimaryProject) {
+      const sp = nodePrimaryProject.get(source);
+      const tp = nodePrimaryProject.get(target);
+      if (sp && sp === tp) hide = true;
+    }
+
+    if (attrs.hidden !== hide) {
+      graph.setEdgeAttribute(edge, 'hidden', hide);
+    }
+  });
 };
 
 /**

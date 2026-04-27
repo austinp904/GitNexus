@@ -393,6 +393,13 @@ export const useSigma = (options: UseSigmaOptions = {}): UseSigmaReturn => {
       edgeReducer: (edge, data) => {
         const res = { ...data };
 
+        // Honor the `hidden` flag set by `applyEdgeDensityFilters`
+        // (intra-cluster + low-confidence edge density filters).
+        if (data.hidden) {
+          res.hidden = true;
+          return res;
+        }
+
         // Check edge type visibility first
         const visibleTypes = visibleEdgeTypesRef.current;
         if (visibleTypes && data.relationType) {
