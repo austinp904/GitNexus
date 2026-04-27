@@ -35,6 +35,7 @@ import {
   communitiesPhase,
   processesPhase,
   vaultPhase,
+  vaultCommunitiesPhase,
   type PipelinePhase,
   type CommunitiesOutput,
   type ProcessesOutput,
@@ -109,7 +110,9 @@ function buildPhaseList(options?: PipelineOptions): PipelinePhase[] {
 
   if (!options?.skipGraphPhases) {
     phases.push(mroPhase, communitiesPhase, processesPhase);
-    // vaultCommunitiesPhase will be added in Task 5.2
+    if (wantsVault) {
+      phases.push(vaultCommunitiesPhase);
+    }
   }
 
   return phases;
