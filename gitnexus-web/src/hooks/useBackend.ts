@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { probeBackend, setBackendUrl as setServiceUrl } from '../services/backend-client';
+import {
+  probeBackend,
+  setBackendUrl as setServiceUrl,
+  normalizeServerUrl,
+} from '../services/backend-client';
 import { DEFAULT_BACKEND_URL } from '../config/ui-constants';
 
 // ── localStorage keys ────────────────────────────────────────────────────────
@@ -28,6 +32,11 @@ export interface UseBackendResult {
 export function useBackend(): UseBackendResult {
   const [backendUrl] = useState<string>(() => {
     try {
+      // A ?server= query param wins over the persisted/default URL — when the
+      // UI is embedded behind a same-origin proxy (e.g. beeb-os /gitnexus) the
+      // mount-time probe below must never hit the default localhost URL.
+      const fromQuery = new URLSearchParams(window.location.search).get('server');
+      if (fromQuery) return normalizeServerUrl(fromQuery);
       return localStorage.getItem(LS_URL_KEY) ?? DEFAULT_BACKEND_URL;
     } catch {
       return DEFAULT_BACKEND_URL;
