@@ -192,6 +192,21 @@ export function streamSSE<T = unknown>(url: string, handlers: SSEHandlers<T>): A
 
 let _backendUrl = 'http://localhost:4747';
 
+// Adopt a ?server= query param at module init so that early probes fired on
+// first render (e.g. DropZone's local-server discovery) never hit the default
+// localhost URL when the UI is embedded behind a same-origin proxy
+// (e.g. beeb-os serving the app at /gitnexus with server=<origin>/gitnexus).
+// The auto-connect flow in App.tsx still calls setBackendUrl with the same
+// normalized value — this just closes the first-paint race.
+try {
+  if (typeof window !== 'undefined') {
+    const earlyServer = new URLSearchParams(window.location.search).get('server');
+    if (earlyServer) _backendUrl = normalizeServerUrl(earlyServer);
+  }
+} catch {
+  // non-browser environment (tests) — keep the default
+}
+
 export const setBackendUrl = (url: string): void => {
   _backendUrl = url.replace(/\/$/, '');
 };
