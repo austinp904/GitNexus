@@ -16,11 +16,14 @@ import {
   knowledgeGraphToGraphology,
   filterGraphByDepth,
   computeCategoryHiddenNodeIds,
+  computeScopeHiddenNodeIds,
+  mergeHiddenNodeIds,
   computeNodePrimaryProject,
   applyEdgeDensityFilters,
   SigmaNodeAttributes,
   SigmaEdgeAttributes,
 } from '../lib/graph-adapter';
+import { getGraphScopePreset } from '../lib/scope-presets';
 import type { GraphNode } from 'gitnexus-shared';
 import { QueryFAB } from './QueryFAB';
 import Graph from 'graphology';
@@ -36,8 +39,10 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle>((_, ref) => {
     selectedNode: appSelectedNode,
     visibleLabels,
     visibleEdgeTypes,
+    activeScopePresetId,
     hiddenProjects,
     hiddenTopics,
+    hiddenCommunities,
     hideIntraClusterEdges,
     edgeConfidenceMin,
     openCodePanel,
@@ -208,15 +213,19 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle>((_, ref) => {
     if (sigmaGraph.order === 0) return; // Don't filter empty graph
 
     const categoryHidden = graph
-      ? computeCategoryHiddenNodeIds(graph, hiddenProjects, hiddenTopics)
+      ? computeCategoryHiddenNodeIds(graph, hiddenProjects, hiddenTopics, hiddenCommunities)
       : undefined;
+    const scopeHidden = graph
+      ? computeScopeHiddenNodeIds(graph, getGraphScopePreset(activeScopePresetId))
+      : undefined;
+    const hiddenNodeIds = mergeHiddenNodeIds(categoryHidden, scopeHidden);
 
     filterGraphByDepth(
       sigmaGraph,
       appSelectedNode?.id || null,
       depthFilter,
       visibleLabels,
-      categoryHidden,
+      hiddenNodeIds,
     );
 
     const nodePrimaryProject =
@@ -232,10 +241,12 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle>((_, ref) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sigmaRef identity never changes
   }, [
     visibleLabels,
+    activeScopePresetId,
     depthFilter,
     appSelectedNode,
     hiddenProjects,
     hiddenTopics,
+    hiddenCommunities,
     hideIntraClusterEdges,
     edgeConfidenceMin,
     graph,

@@ -2,6 +2,7 @@ import { createContext, useContext, useCallback, useMemo, useState, ReactNode } 
 import type { GraphNode, NodeLabel } from 'gitnexus-shared';
 import type { KnowledgeGraph } from '../../core/graph/types';
 import { DEFAULT_VISIBLE_LABELS, DEFAULT_VISIBLE_EDGES, type EdgeType } from '../../lib/constants';
+import { ALL_SCOPE_PRESET_ID } from '../../lib/scope-presets';
 
 interface GraphStateContextValue {
   graph: KnowledgeGraph | null;
@@ -12,16 +13,20 @@ interface GraphStateContextValue {
   toggleLabelVisibility: (label: NodeLabel) => void;
   visibleEdgeTypes: EdgeType[];
   toggleEdgeVisibility: (edgeType: EdgeType) => void;
+  activeScopePresetId: string;
+  setActiveScopePresetId: (id: string) => void;
   depthFilter: number | null;
   setDepthFilter: (depth: number | null) => void;
   highlightedNodeIds: Set<string>;
   setHighlightedNodeIds: (ids: Set<string>) => void;
   // Vault category filters: hide all nodes that belong to a Project (MEMBER_OF)
-  // or Topic (TAGGED) whose name appears in these sets.
+  // or Community (MEMBER_OF), or Topic (TAGGED), whose name appears in these sets.
   hiddenProjects: Set<string>;
   hiddenTopics: Set<string>;
+  hiddenCommunities: Set<string>;
   toggleProject: (name: string) => void;
   toggleTopic: (name: string) => void;
+  toggleCommunity: (name: string) => void;
   // Edge density filters: hide intra-cluster edges (both endpoints share the
   // same primary MEMBER_OF Project) and drop edges below a confidence floor.
   hideIntraClusterEdges: boolean;
@@ -37,10 +42,12 @@ export const GraphStateProvider = ({ children }: { children: ReactNode }) => {
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [visibleLabels, setVisibleLabels] = useState<NodeLabel[]>(DEFAULT_VISIBLE_LABELS);
   const [visibleEdgeTypes, setVisibleEdgeTypes] = useState<EdgeType[]>(DEFAULT_VISIBLE_EDGES);
+  const [activeScopePresetId, setActiveScopePresetId] = useState(ALL_SCOPE_PRESET_ID);
   const [depthFilter, setDepthFilter] = useState<number | null>(null);
   const [highlightedNodeIds, setHighlightedNodeIds] = useState<Set<string>>(new Set());
   const [hiddenProjects, setHiddenProjects] = useState<Set<string>>(new Set());
   const [hiddenTopics, setHiddenTopics] = useState<Set<string>>(new Set());
+  const [hiddenCommunities, setHiddenCommunities] = useState<Set<string>>(new Set());
   const [hideIntraClusterEdges, setHideIntraClusterEdges] = useState(false);
   const [edgeConfidenceMin, setEdgeConfidenceMin] = useState(0);
 
@@ -55,6 +62,15 @@ export const GraphStateProvider = ({ children }: { children: ReactNode }) => {
 
   const toggleTopic = useCallback((name: string) => {
     setHiddenTopics((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }, []);
+
+  const toggleCommunity = useCallback((name: string) => {
+    setHiddenCommunities((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
       else next.add(name);
@@ -84,14 +100,18 @@ export const GraphStateProvider = ({ children }: { children: ReactNode }) => {
       toggleLabelVisibility,
       visibleEdgeTypes,
       toggleEdgeVisibility,
+      activeScopePresetId,
+      setActiveScopePresetId,
       depthFilter,
       setDepthFilter,
       highlightedNodeIds,
       setHighlightedNodeIds,
       hiddenProjects,
       hiddenTopics,
+      hiddenCommunities,
       toggleProject,
       toggleTopic,
+      toggleCommunity,
       hideIntraClusterEdges,
       setHideIntraClusterEdges,
       edgeConfidenceMin,
@@ -102,12 +122,15 @@ export const GraphStateProvider = ({ children }: { children: ReactNode }) => {
       selectedNode,
       visibleLabels,
       visibleEdgeTypes,
+      activeScopePresetId,
       depthFilter,
       highlightedNodeIds,
       hiddenProjects,
       hiddenTopics,
+      hiddenCommunities,
       toggleProject,
       toggleTopic,
+      toggleCommunity,
       hideIntraClusterEdges,
       edgeConfidenceMin,
     ],

@@ -105,12 +105,16 @@ interface AppState {
   toggleLabelVisibility: (label: NodeLabel) => void;
   visibleEdgeTypes: EdgeType[];
   toggleEdgeVisibility: (edgeType: EdgeType) => void;
+  activeScopePresetId: string;
+  setActiveScopePresetId: (id: string) => void;
 
   // Vault category filters
   hiddenProjects: Set<string>;
   hiddenTopics: Set<string>;
+  hiddenCommunities: Set<string>;
   toggleProject: (name: string) => void;
   toggleTopic: (name: string) => void;
+  toggleCommunity: (name: string) => void;
 
   // Edge density filters
   hideIntraClusterEdges: boolean;
@@ -227,14 +231,18 @@ const AppStateProviderInner = ({ children }: { children: ReactNode }) => {
     toggleLabelVisibility,
     visibleEdgeTypes,
     toggleEdgeVisibility,
+    activeScopePresetId,
+    setActiveScopePresetId,
     depthFilter,
     setDepthFilter,
     highlightedNodeIds,
     setHighlightedNodeIds,
     hiddenProjects,
     hiddenTopics,
+    hiddenCommunities,
     toggleProject,
     toggleTopic,
+    toggleCommunity,
     hideIntraClusterEdges,
     setHideIntraClusterEdges,
     edgeConfidenceMin,
@@ -1246,10 +1254,14 @@ const AppStateProviderInner = ({ children }: { children: ReactNode }) => {
     toggleLabelVisibility,
     visibleEdgeTypes,
     toggleEdgeVisibility,
+    activeScopePresetId,
+    setActiveScopePresetId,
     hiddenProjects,
     hiddenTopics,
+    hiddenCommunities,
     toggleProject,
     toggleTopic,
+    toggleCommunity,
     hideIntraClusterEdges,
     setHideIntraClusterEdges,
     edgeConfidenceMin,

@@ -18,12 +18,18 @@ import {
   List,
   AtSign,
   Type,
+  Layers,
   User,
   Briefcase,
   Tag,
 } from '@/lib/lucide-icons';
 import { useAppState } from '../hooks/useAppState';
 import { FILTERABLE_LABELS, NODE_COLORS, ALL_EDGE_TYPES, EDGE_INFO } from '../lib/constants';
+import {
+  GRAPH_SCOPE_PRESETS,
+  getGraphScopePreset,
+  isPathInScopePreset,
+} from '../lib/scope-presets';
 import { CategoriesPanel } from './CategoriesPanel';
 import type { GraphNode, NodeLabel } from 'gitnexus-shared';
 
@@ -232,6 +238,8 @@ export const FileTreePanel = ({ onFocusNode }: FileTreePanelProps) => {
     toggleLabelVisibility,
     visibleEdgeTypes,
     toggleEdgeVisibility,
+    activeScopePresetId,
+    setActiveScopePresetId,
     selectedNode,
     setSelectedNode,
     openCodePanel,
@@ -239,8 +247,10 @@ export const FileTreePanel = ({ onFocusNode }: FileTreePanelProps) => {
     setDepthFilter,
     hiddenProjects,
     hiddenTopics,
+    hiddenCommunities,
     toggleProject,
     toggleTopic,
+    toggleCommunity,
     hideIntraClusterEdges,
     setHideIntraClusterEdges,
     edgeConfidenceMin,
@@ -319,6 +329,20 @@ export const FileTreePanel = ({ onFocusNode }: FileTreePanelProps) => {
   );
 
   const selectedPath = selectedNode?.properties.filePath || null;
+  const activeScopePreset = getGraphScopePreset(activeScopePresetId);
+  const scopePresetCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!graph) return counts;
+    for (const preset of GRAPH_SCOPE_PRESETS) {
+      counts.set(
+        preset.id,
+        graph.nodes.filter((node) => isPathInScopePreset(node.properties.filePath, preset)).length,
+      );
+    }
+    return counts;
+  }, [graph]);
+  const activeScopeNodeCount =
+    scopePresetCounts.get(activeScopePresetId) ?? graph?.nodes.length ?? 0;
 
   if (isCollapsed) {
     return (
@@ -450,6 +474,42 @@ export const FileTreePanel = ({ onFocusNode }: FileTreePanelProps) => {
 
       {activeTab === 'filters' && (
         <div className="scrollbar-thin flex-1 overflow-y-auto p-3">
+          <div className="mb-6">
+            <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium tracking-wide text-text-secondary uppercase">
+              <Layers className="h-3 w-3" />
+              Scope Preset
+            </h3>
+            <div className="mb-2 rounded border border-border-subtle bg-elevated/60 px-2 py-1.5">
+              <div className="truncate text-xs text-text-primary">{activeScopePreset.label}</div>
+              <div className="mt-0.5 line-clamp-2 text-[10px] text-text-muted">
+                {activeScopePreset.description}
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              {GRAPH_SCOPE_PRESETS.map((preset) => {
+                const isActive = activeScopePresetId === preset.id;
+                const count = scopePresetCounts.get(preset.id) ?? 0;
+                return (
+                  <button
+                    key={preset.id}
+                    onClick={() => setActiveScopePresetId(preset.id)}
+                    className={`flex items-center gap-2 rounded px-2 py-1.5 text-left transition-colors ${
+                      isActive
+                        ? 'bg-accent/20 text-accent'
+                        : 'text-text-secondary hover:bg-hover hover:text-text-primary'
+                    }`}
+                    title={preset.description}
+                  >
+                    <span className="min-w-0 flex-1 truncate text-xs">{preset.label}</span>
+                    <span className="rounded bg-elevated px-1.5 py-0.5 font-mono text-[10px] text-text-muted">
+                      {count.toLocaleString()}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="mb-3">
             <h3 className="mb-2 text-xs font-medium tracking-wide text-text-secondary uppercase">
               Node Types
@@ -646,8 +706,10 @@ export const FileTreePanel = ({ onFocusNode }: FileTreePanelProps) => {
             nodes={graph?.nodes ?? []}
             hiddenProjects={hiddenProjects}
             hiddenTopics={hiddenTopics}
+            hiddenCommunities={hiddenCommunities}
             onToggleProject={toggleProject}
             onToggleTopic={toggleTopic}
+            onToggleCommunity={toggleCommunity}
           />
         </div>
       )}
@@ -656,7 +718,9 @@ export const FileTreePanel = ({ onFocusNode }: FileTreePanelProps) => {
       {graph && (
         <div className="border-t border-border-subtle bg-elevated/50 px-3 py-2">
           <div className="flex items-center justify-between text-[10px] text-text-muted">
-            <span>{graph.nodes.length} nodes</span>
+            <span>
+              {activeScopeNodeCount.toLocaleString()} / {graph.nodes.length.toLocaleString()} nodes
+            </span>
             <span>{graph.relationships.length} edges</span>
           </div>
         </div>

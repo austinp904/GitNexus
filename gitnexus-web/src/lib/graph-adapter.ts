@@ -2,30 +2,45 @@ import Graph from 'graphology';
 import type { NodeLabel } from 'gitnexus-shared';
 import type { KnowledgeGraph } from '../core/graph/types';
 import { NODE_COLORS, NODE_SIZES, getCommunityColor } from './constants';
+import { ALL_SCOPE_PRESET_ID, isPathInScopePreset, type GraphScopePreset } from './scope-presets';
+
+const categoryNameForNode = (node: {
+  label: NodeLabel;
+  properties?: { name?: string; heuristicLabel?: string };
+}): string => {
+  if (node.label === 'Community') {
+    return String(node.properties?.heuristicLabel ?? node.properties?.name ?? '');
+  }
+  return String(node.properties?.name ?? '');
+};
 
 /**
  * Compute the set of node IDs that should be hidden because they are members
- * of a hidden Project (via MEMBER_OF) or tagged with a hidden Topic (via TAGGED).
+ * of a hidden Project/Community (via MEMBER_OF) or tagged with a hidden Topic
+ * (via TAGGED).
  *
  * Walks the source KnowledgeGraph relationships rather than the graphology
  * graph because edge attributes (specifically the `type` discriminator) are
- * preserved more reliably on the source side, and project/topic membership
+ * preserved more reliably on the source side, and category membership
  * lookups need both the relation type and the target node label.
  */
 export const computeCategoryHiddenNodeIds = (
   knowledgeGraph: KnowledgeGraph,
   hiddenProjects: Set<string>,
   hiddenTopics: Set<string>,
+  hiddenCommunities: Set<string> = new Set(),
 ): Set<string> => {
   const hidden = new Set<string>();
-  if (hiddenProjects.size === 0 && hiddenTopics.size === 0) return hidden;
+  if (hiddenProjects.size === 0 && hiddenTopics.size === 0 && hiddenCommunities.size === 0) {
+    return hidden;
+  }
 
   // Map nodeId -> { label, name } so we can resolve relationship targets fast.
   const nodeMeta = new Map<string, { label: NodeLabel; name: string }>();
   for (const n of knowledgeGraph.nodes) {
     nodeMeta.set(n.id, {
       label: n.label,
-      name: String(n.properties?.name ?? ''),
+      name: categoryNameForNode(n),
     });
   }
 
@@ -39,6 +54,11 @@ export const computeCategoryHiddenNodeIds = (
         // Also hide the Project node itself when it's filtered out
         hidden.add(rel.targetId);
       }
+    } else if (rel.type === 'MEMBER_OF' && target.label === 'Community') {
+      if (hiddenCommunities.has(target.name)) {
+        hidden.add(rel.sourceId);
+        hidden.add(rel.targetId);
+      }
     } else if (rel.type === 'TAGGED' && target.label === 'Topic') {
       if (hiddenTopics.has(target.name)) {
         hidden.add(rel.sourceId);
@@ -48,6 +68,33 @@ export const computeCategoryHiddenNodeIds = (
   }
 
   return hidden;
+};
+
+export const computeScopeHiddenNodeIds = (
+  knowledgeGraph: KnowledgeGraph,
+  scopePreset: GraphScopePreset,
+): Set<string> => {
+  const hidden = new Set<string>();
+  if (scopePreset.id === ALL_SCOPE_PRESET_ID) return hidden;
+
+  for (const node of knowledgeGraph.nodes) {
+    if (!isPathInScopePreset(node.properties.filePath, scopePreset)) {
+      hidden.add(node.id);
+    }
+  }
+
+  return hidden;
+};
+
+export const mergeHiddenNodeIds = (
+  ...hiddenNodeIdSets: Array<Set<string> | undefined>
+): Set<string> | undefined => {
+  const merged = new Set<string>();
+  for (const ids of hiddenNodeIdSets) {
+    if (!ids) continue;
+    for (const id of ids) merged.add(id);
+  }
+  return merged.size > 0 ? merged : undefined;
 };
 
 export interface SigmaNodeAttributes {
@@ -402,11 +449,12 @@ export const knowledgeGraphToGraphology = (
 };
 
 /**
- * Build a map of nodeId → primary Project name (the FIRST `MEMBER_OF Project`
+ * Build a map of nodeId -> primary Project/Community name (the FIRST
+ * `MEMBER_OF Project` or `MEMBER_OF Community`
  * relationship encountered). Used by the "Hide intra-cluster edges" filter so
- * we can detect when both endpoints belong to the same project cluster.
+ * we can detect when both endpoints belong to the same cluster.
  *
- * "Primary" is approximate: a node may be MEMBER_OF multiple projects, but
+ * "Primary" is approximate: a node may be MEMBER_OF multiple categories, but
  * for visual de-cluttering it's enough that the first project we see is
  * stable across edges (relationships are built deterministically from the
  * source DB, so iteration order is stable per-graph).
@@ -419,14 +467,14 @@ export const computeNodePrimaryProject = (knowledgeGraph: KnowledgeGraph): Map<s
   for (const n of knowledgeGraph.nodes) {
     nodeMeta.set(n.id, {
       label: n.label,
-      name: String(n.properties?.name ?? ''),
+      name: categoryNameForNode(n),
     });
   }
 
   for (const rel of knowledgeGraph.relationships) {
     if (rel.type !== 'MEMBER_OF') continue;
     const target = nodeMeta.get(rel.targetId);
-    if (!target || target.label !== 'Project') continue;
+    if (!target || (target.label !== 'Project' && target.label !== 'Community')) continue;
     if (!nodeProject.has(rel.sourceId)) {
       nodeProject.set(rel.sourceId, target.name);
     }
@@ -441,7 +489,7 @@ export const computeNodePrimaryProject = (knowledgeGraph: KnowledgeGraph): Map<s
  *
  * Two filters are combined:
  *   - confidence < edgeConfidenceMin
- *   - intra-cluster: both endpoints share the same primary MEMBER_OF Project
+ *   - intra-cluster: both endpoints share the same primary MEMBER_OF category
  *
  * Always called from the same useEffect that runs node visibility filters,
  * so callers can rely on `sigma.refresh()` afterwards to repaint.
@@ -481,7 +529,7 @@ export const applyEdgeDensityFilters = (
 /**
  * Filter nodes by visibility - sets hidden attribute.
  * Optionally also hides nodes whose IDs appear in `categoryHiddenNodeIds`
- * (used for Project/Topic membership filters).
+ * (used for Project/Topic/Community membership filters).
  */
 export const filterGraphByLabels = (
   graph: Graph<SigmaNodeAttributes, SigmaEdgeAttributes>,
@@ -527,7 +575,7 @@ export const getNodesWithinHops = (
 /**
  * Filter nodes by depth from selected node.
  * Optionally also hides nodes whose IDs appear in `categoryHiddenNodeIds`
- * (used for Project/Topic membership filters).
+ * (used for Project/Topic/Community membership filters).
  */
 export const filterGraphByDepth = (
   graph: Graph<SigmaNodeAttributes, SigmaEdgeAttributes>,
