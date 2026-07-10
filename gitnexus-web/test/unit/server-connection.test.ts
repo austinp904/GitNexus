@@ -33,6 +33,7 @@ describe('normalizeServerUrl', () => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -137,7 +138,7 @@ describe('fetchGraph', () => {
     expect(result.nodes[0].properties.filePath).toBe('src/app.ts');
   });
 
-  it('throws backend errors emitted in the NDJSON stream', async () => {
+  it('throws backend errors when streamed and non-stream graph downloads both fail', async () => {
     setBackendUrl('http://localhost:4747');
 
     const encoder = new TextEncoder();
@@ -150,18 +151,126 @@ describe('fetchGraph', () => {
 
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(stream, {
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(stream, {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/x-ndjson',
+            },
+          }),
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ error: 'fallback failed' }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }),
+        ),
+    );
+
+    await expect(fetchGraph('big-repo')).rejects.toMatchObject({
+      message: 'fallback failed',
+    });
+  });
+
+  it('falls back to non-stream graph responses when streamed downloads fail', async () => {
+    setBackendUrl('http://localhost:4747');
+
+    const encoder = new TextEncoder();
+    const failedStream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode('{"type":"error","error":"stream failed"}\n'));
+        controller.close();
+      },
+    });
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(failedStream, {
           status: 200,
           headers: {
             'Content-Type': 'application/x-ndjson',
           },
         }),
-      ),
-    );
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            nodes: [
+              {
+                id: 'File:src/app.ts',
+                label: 'File',
+                properties: { name: 'app.ts', filePath: 'src/app.ts' },
+              },
+            ],
+            relationships: [],
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
 
-    await expect(fetchGraph('big-repo')).rejects.toMatchObject({
-      message: 'stream failed',
+    const result = await fetchGraph('big-repo');
+
+    expect(result.nodes).toHaveLength(1);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('/api/graph?repo=big-repo&stream=true'),
+      expect.any(Object),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('/api/graph?repo=big-repo'),
+      expect.any(Object),
+    );
+    expect(fetchMock.mock.calls[1][0]).not.toContain('stream=true');
+  });
+
+  it('falls back when a streamed graph response stalls after headers', async () => {
+    vi.useFakeTimers();
+    setBackendUrl('http://localhost:4747');
+
+    const stalledStream = new ReadableStream<Uint8Array>({
+      start() {
+        // Headers are available, but the body never yields a graph chunk.
+      },
     });
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(stalledStream, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/x-ndjson',
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ nodes: [], relationships: [] }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const resultPromise = fetchGraph('big-repo');
+    await vi.advanceTimersByTimeAsync(15_000);
+    const result = await resultPromise;
+
+    expect(result.nodes).toHaveLength(0);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][0]).not.toContain('stream=true');
   });
 });

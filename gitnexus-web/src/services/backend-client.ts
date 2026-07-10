@@ -239,6 +239,9 @@ export function normalizeServerUrl(input: string): string {
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const PROBE_TIMEOUT_MS = 2_000;
+const GRAPH_STREAM_TIMEOUT_MS = 15_000;
+const GRAPH_JSON_TIMEOUT_MS = 120_000;
+const GRAPH_STREAM_IDLE_TIMEOUT_MS = 15_000;
 
 const fetchWithTimeout = async (
   url: string,
@@ -301,6 +304,16 @@ const assertOk = async (response: Response): Promise<void> => {
 };
 
 const repoParam = (repo?: string): string => (repo ? `repo=${encodeURIComponent(repo)}` : '');
+const graphUrl = (repo?: string, opts?: { includeContent?: boolean; stream?: boolean }): string => {
+  const params = [
+    repoParam(repo),
+    opts?.includeContent ? 'includeContent=true' : '',
+    opts?.stream ? 'stream=true' : '',
+  ]
+    .filter(Boolean)
+    .join('&');
+  return `${_backendUrl}/api/graph${params ? `?${params}` : ''}`;
+};
 
 // ── API Methods ────────────────────────────────────────────────────────────
 
@@ -433,17 +446,48 @@ export const fetchGraph = async (
     onProgress?: (downloaded: number, total: number | null) => void;
   },
 ): Promise<{ nodes: GraphNode[]; relationships: GraphRelationship[] }> => {
-  const params = [repoParam(repo), opts?.includeContent ? 'includeContent=true' : '', 'stream=true']
-    .filter(Boolean)
-    .join('&');
-  const url = `${_backendUrl}/api/graph${params ? `?${params}` : ''}`;
-  // Large repos can take a while to serialize the graph — use an elevated timeout
-  const response = await fetchWithTimeout(url, { signal: opts?.signal }, 120_000);
+  const streamUrl = graphUrl(repo, { includeContent: opts?.includeContent, stream: true });
+  try {
+    return await fetchGraphResponse(streamUrl, opts, GRAPH_STREAM_TIMEOUT_MS, true);
+  } catch (err) {
+    if (opts?.signal?.aborted || !shouldRetryGraphWithoutStream(err)) {
+      throw err;
+    }
+    console.warn('Streamed graph download failed; retrying without stream.', err);
+  }
+
+  opts?.onProgress?.(0, null);
+  const jsonUrl = graphUrl(repo, { includeContent: opts?.includeContent });
+  return fetchGraphResponse(jsonUrl, opts, GRAPH_JSON_TIMEOUT_MS, false);
+};
+
+const shouldRetryGraphWithoutStream = (err: unknown): boolean => {
+  if (err instanceof BackendError) {
+    return err.code === 'timeout' || err.code === 'network' || err.code === 'server';
+  }
+  return false;
+};
+
+const fetchGraphResponse = async (
+  url: string,
+  opts:
+    | {
+        includeContent?: boolean;
+        signal?: AbortSignal;
+        onProgress?: (downloaded: number, total: number | null) => void;
+      }
+    | undefined,
+  timeoutMs: number,
+  preferNdjson: boolean,
+): Promise<{ nodes: GraphNode[]; relationships: GraphRelationship[] }> => {
+  // Large repos can take a while to serialize the graph — use an elevated timeout for
+  // the non-stream fallback, but keep the preferred stream path from hanging the UI.
+  const response = await fetchWithTimeout(url, { signal: opts?.signal }, timeoutMs);
   await assertOk(response);
 
   const contentType = response.headers.get('Content-Type') || '';
-  if (contentType.includes('application/x-ndjson')) {
-    return parseNdjsonGraphResponse(response, opts?.onProgress);
+  if (preferNdjson && contentType.includes('application/x-ndjson')) {
+    return parseNdjsonGraphResponse(response, opts?.onProgress, GRAPH_STREAM_IDLE_TIMEOUT_MS);
   }
 
   if (!opts?.onProgress || !response.body) {
@@ -477,6 +521,7 @@ export const fetchGraph = async (
 const parseNdjsonGraphResponse = async (
   response: Response,
   onProgress?: (downloaded: number, total: number | null) => void,
+  idleTimeoutMs?: number,
 ): Promise<{ nodes: GraphNode[]; relationships: GraphRelationship[] }> => {
   if (!response.body) {
     throw new BackendError('No response body', response.status, 'server');
@@ -490,6 +535,31 @@ const parseNdjsonGraphResponse = async (
   const relationships: GraphRelationship[] = [];
   let buffer = '';
   let downloaded = 0;
+  const readNextChunk = async (): Promise<ReadableStreamReadResult<Uint8Array>> => {
+    if (!idleTimeoutMs) {
+      return reader.read();
+    }
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<ReadableStreamReadResult<Uint8Array>>((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new BackendError(`Graph stream stalled after ${idleTimeoutMs}ms`, 0, 'timeout'));
+      }, idleTimeoutMs);
+    });
+
+    try {
+      return await Promise.race([reader.read(), timeout]);
+    } catch (err) {
+      void reader.cancel().catch(() => {
+        // Best-effort cleanup only; the timeout error is the actionable signal.
+      });
+      throw err;
+    } finally {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    }
+  };
 
   const parseLine = (line: string) => {
     const trimmed = line.trim();
@@ -514,7 +584,7 @@ const parseNdjsonGraphResponse = async (
   };
 
   while (true) {
-    const { done, value } = await reader.read();
+    const { done, value } = await readNextChunk();
     if (done) break;
 
     downloaded += value.length;
